@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Furor Live · Público</title>
+    <style>
+      :root { --bg:#10031c; --cyan:#1fd6e8; --pink:#ff2e9a; --violet:#9d4edd; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body { margin:0; min-height:100vh; background:var(--bg); color:#eee; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; display:grid; place-items:start center; padding:18px; }
+      .wrap { width:100%; max-width:480px; text-align:center; }
+      h1 { color:var(--cyan); text-shadow:0 0 14px var(--cyan); font-size:28px; margin:.4em 0; }
+      .muted { color:#a98cc4; }
+      .title { font-size:22px; color:var(--cyan); margin:14px 0; }
+      button.opt { display:block; width:100%; padding:18px; margin:10px 0; font-size:22px; border-radius:14px; border:1px solid var(--violet); background:rgba(157,78,221,.12); color:#fff; }
+      button.opt:active { transform:scale(.98); }
+      .scores { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+      .scores button { padding:22px 0; font-size:26px; border-radius:14px; border:1px solid var(--cyan); background:rgba(31,214,232,.12); color:#fff; }
+      .energy { width:210px; height:210px; border-radius:50%; border:4px solid var(--cyan); background:transparent; color:var(--cyan); font-size:26px; text-transform:uppercase; margin:10px auto; box-shadow:0 0 24px rgba(31,214,232,.5); }
+      .thanks { color:var(--cyan); font-size:22px; margin-top:10px; }
+      section.photo { border-top:1px solid rgba(157,78,221,.4); margin-top:26px; padding-top:18px; text-align:left; }
+      input[type=text] { width:100%; padding:12px; border-radius:10px; border:1px solid rgba(157,78,221,.5); background:rgba(0,0,0,.35); color:var(--cyan); font-size:16px; }
+      input[type=file] { width:100%; color:#cbb; margin-top:10px; }
+      .send { width:100%; padding:14px; margin-top:10px; font-size:18px; border-radius:12px; border:1px solid var(--cyan); background:rgba(31,214,232,.12); color:#fff; }
+      .err { color:#ff7ba6; } .ok { color:var(--cyan); }
+      .badge { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; }
+      .on { background:rgba(43,240,160,.2); color:#2bf0a0; } .off { background:rgba(255,59,107,.2); color:#ff9bb3; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>FUROR LIVE</h1>
+      <div id="evt" class="muted"></div>
+      <div id="vote"></div>
+      <section class="photo">
+        <h2 class="title" style="text-align:center">📸 Envía tu foto</h2>
+        <input id="alias" type="text" placeholder="Tu nombre (opcional)" maxlength="40" />
+        <input id="file" type="file" accept="image/*" />
+        <button id="sendPhoto" class="send" disabled>Enviar foto</button>
+        <p id="photoMsg"></p>
+      </section>
+    </div>
+    <script>
+      const qs = new URLSearchParams(location.search)
+      const code = qs.get('k') || ''
+      let voterId = localStorage.getItem('furor_voter_id')
+      if (!voterId) { voterId = 'v_' + Date.now() + '_' + Math.floor(Math.random() * 1e6); localStorage.setItem('furor_voter_id', voterId) }
+
+      const $ = (id) => document.getElementById(id)
+      let voted = false, lastSig = ''
+
+      async function post(path, body) {
+        const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status)
+      }
+
+      function cast(value) {
+        post('/api/vote', { voterId, value, code }).then(() => { voted = true; render() }).catch((e) => { $('vote').insertAdjacentHTML('beforeend', '<p class="err">' + e.message + '</p>') })
+      }
+      function tap() { post('/api/vote', { voterId, value: 0, code }).catch(() => {}) }
+
+      let cur = null
+      function render() {
+        const vote = cur && cur.vote
+        const open = !!(vote && vote.open)
+        $('evt').innerHTML = (cur && cur.eventName ? cur.eventName + ' · ' : '') + (cur && cur.connected ? '<span class="badge on">en directo</span>' : '<span class="badge off">sin conexión</span>')
+        const box = $('vote')
+        if (!open) { box.innerHTML = '<p class="muted title">Esperando votación…</p>'; return }
+        if (vote.title) { /* título */ }
+        const kind = vote.kind || 'question'
+        const title = vote.title ? '<p class="title">' + vote.title + '</p>' : ''
+        if (kind === 'energy') { box.innerHTML = title + '<button class="energy" id="en">¡Energía!</button>'; $('en').onclick = tap; return }
+        if (voted) { box.innerHTML = title + '<p class="thanks">¡Gracias por tu voto!</p>'; return }
+        let opts = []
+        if (kind === 'score') opts = [1,2,3,4,5].map((n) => ({ value: n, label: '★ ' + n }))
+        else if (kind === 'question') opts = (vote.options || []).map((o, i) => ({ value: i, label: o.label }))
+        else opts = (vote.options || []).map((o) => ({ value: Number(o.key), label: o.label }))
+        box.innerHTML = title + (kind === 'score'
+          ? '<div class="scores">' + opts.map((o) => '<button data-v="' + o.value + '">' + o.value + '</button>').join('') + '</div>'
+          : opts.map((o) => '<button class="opt" data-v="' + o.value + '">' + o.label + '</button>').join(''))
+        box.querySelectorAll('button[data-v]').forEach((b) => (b.onclick = () => cast(Number(b.dataset.v))))
+      }
+
+      async function poll() {
+        try {
+          cur = await (await fetch('/api/state')).json()
+          const sig = JSON.stringify(cur && cur.vote ? [cur.vote.kind, cur.vote.open, cur.vote.title, cur.vote.options] : null)
+          if (sig !== lastSig) { lastSig = sig; if (cur && cur.vote && cur.vote.open) voted = false; }
+          render()
+        } catch {}
+      }
+      poll(); setInterval(poll, 2500)
+
+      // --- Foto: reducir en el móvil (máx 1280px, JPEG) y enviar ---
+      let photoData = null
+      $('file').onchange = (e) => {
+        $('photoMsg').textContent = ''
+        const file = e.target.files && e.target.files[0]
+        if (!file) { photoData = null; $('sendPhoto').disabled = true; return }
+        const reader = new FileReader()
+        reader.onload = () => {
+          const img = new Image()
+          img.onload = () => {
+            const MAX = 1280
+            let { width, height } = img
+            if (width > MAX || height > MAX) { const s = MAX / Math.max(width, height); width = Math.round(width * s); height = Math.round(height * s) }
+            const c = document.createElement('canvas'); c.width = width; c.height = height
+            c.getContext('2d').drawImage(img, 0, 0, width, height)
+            photoData = c.toDataURL('image/jpeg', 0.8)
+            $('sendPhoto').disabled = false
+          }
+          img.src = reader.result
+        }
+        reader.readAsDataURL(file)
+      }
+      $('sendPhoto').onclick = () => {
+        if (!photoData) return
+        $('sendPhoto').disabled = true
+        $('photoMsg').textContent = 'Enviando…'
+        post('/api/photo', { alias: $('alias').value.trim() || undefined, dataUrl: photoData, code })
+          .then(() => { $('photoMsg').innerHTML = '<span class="ok">¡Foto enviada! La revisará la organización.</span>'; $('file').value = ''; photoData = null })
+          .catch((e) => { $('photoMsg').innerHTML = '<span class="err">' + e.message + '</span>'; $('sendPhoto').disabled = false })
+      }
+    </script>
+  </body>
+</html>

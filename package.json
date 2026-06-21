@@ -1,0 +1,17 @@
+{
+  "name": "furor-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Relé público de Furor Live: recibe votos y fotos del público por internet y los reenvía al PC del show por un WebSocket (despliegue en Railway).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
