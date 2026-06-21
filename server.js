@@ -24,6 +24,10 @@ const app = express()
 app.use(express.json({ limit: '2mb' })) // fotos ya reducidas en el móvil
 app.use(express.static(path.join(__dirname, 'public')))
 
+// La web del público se sirve en `/` y también en `/publico` (el QR de la app
+// usa esa ruta, igual que en modo local). Los parámetros ?e= y ?k= los lee el JS.
+app.get('/publico', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')))
+
 // Estado que empuja el PC del show (el "bridge"): qué votación está abierta,
 // nombre del evento y token del evento (para validar el QR). El token NO se
 // expone al público; solo se usa para comparar.
