@@ -34,6 +34,9 @@
       #preview { width:100%; max-height:42vh; object-fit:contain; border-radius:14px; margin-top:12px; background:#000; }
       .send { width:100%; padding:16px; margin-top:12px; font-size:18px; font-weight:600; border-radius:14px; border:none; background:var(--cyan); color:#06121a; }
       .send:disabled { opacity:.4; }
+      .tos { display:flex; gap:10px; align-items:flex-start; margin-top:14px; font-size:13px; color:#c9b3e2; line-height:1.45; }
+      .tos input { width:22px; height:22px; flex:0 0 auto; margin-top:1px; accent-color:var(--cyan); }
+      .tos a { color:var(--cyan); }
       .err { color:var(--err); text-align:center; margin-top:8px; }
       .ok { color:var(--ok); text-align:center; margin-top:8px; }
     </style>
@@ -55,6 +58,15 @@
         <input id="fileCam" type="file" accept="image/*" capture="environment" style="display:none" />
         <input id="fileGal" type="file" accept="image/*" style="display:none" />
         <img id="preview" alt="" style="display:none" />
+        <label class="tos">
+          <input id="tos" type="checkbox" />
+          <span id="tosText">
+            Acepto que mi foto se muestre en las pantallas del evento y en las redes/promociones de
+            Furor Live. Confirmo que la imagen es mía o tengo permiso de quienes aparecen, que no
+            incluye contenido ofensivo, y que será moderada antes de mostrarse.
+            <a href="#" id="tosMore">Ver condiciones</a>
+          </span>
+        </label>
         <button id="sendPhoto" class="send" disabled>Enviar foto</button>
         <p id="photoMsg"></p>
       </div>
@@ -141,6 +153,20 @@
 
       // --- Foto: elegir cámara o galería, reducir en el móvil y enviar ---
       var photoData = null
+      // El botón de enviar requiere foto + aceptar términos y condiciones.
+      function updateSendState() { $('sendPhoto').disabled = !(photoData && $('tos').checked) }
+      $('tos').onchange = updateSendState
+      $('tosMore').onclick = function (ev) {
+        ev.preventDefault()
+        alert('Condiciones de uso (versión beta · provisional)\n\n'
+          + '• Al enviar tu foto autorizas a la organización a mostrarla en las pantallas del '
+          + 'evento y en las redes/promociones de Furor Live.\n'
+          + '• Confirmas que la imagen es tuya o tienes permiso de las personas que aparecen.\n'
+          + '• No debe incluir contenido ofensivo, ilegal ni que vulnere derechos de terceros.\n'
+          + '• Todas las fotos son moderadas por la organización antes de mostrarse.\n'
+          + '• Tus datos no se utilizan con otros fines y puedes pedir la retirada de tu foto.\n\n'
+          + 'Texto provisional de esta versión; puede actualizarse.')
+      }
       $('btnCam').onclick = function () { $('fileCam').click() }
       $('btnGal').onclick = function () { $('fileGal').click() }
       function handleFile(e) {
@@ -157,7 +183,7 @@
             c.getContext('2d').drawImage(img, 0, 0, w, h)
             photoData = c.toDataURL('image/jpeg', 0.8)
             var p = $('preview'); p.src = photoData; p.style.display = 'block'
-            $('sendPhoto').disabled = false
+            updateSendState()
           }
           img.onerror = function () { $('photoMsg').innerHTML = '<span class="err">No se pudo leer la imagen.</span>' }
           img.src = reader.result
